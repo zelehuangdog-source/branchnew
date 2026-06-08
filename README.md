@@ -1,45 +1,55 @@
 # branchnew
 
-在**当前终端**里劈一个新窗格(或开新标签 / 新窗口),并在那里**继续当前的 Claude Code 会话**——于是你立刻得到一个上下文相同的「第二视图」,就贴在你正在工作的地方。你原来的窗格不动。
+在**当前终端**向右劈一个窗格,并在那里把当前的 Claude Code 会话 **fork 一份继续**——于是你立刻得到一个上下文相同的「分身」,就贴在你正在工作的地方。你原来的窗格不动。
 
-一句话:`branchnew` = 「把这个 Claude 会话再开一个分身,放旁边」。
+一句话:`branchnew` = 「把这个 Claude 会话再 fork 一个分身,放右边」。
 
 ```
 ┌───────────────┬───────────────┐
 │  你正在工作的   │  branchnew 开的 │
-│  Claude 会话    │  分身(同上下文) │
-│  (原样不动)     │  fork / 共享    │
+│  Claude 会话    │  fork 分身      │
+│  (原样不动)     │  newBranch[N]   │
 └───────────────┴───────────────┘
 ```
 
-## 它能做什么
+## 用法
 
-- **同上下文**:新视图用 `claude --continue` 接上 `$PWD` 里最近的那个会话。
-- **两种会话模式**:
-  - `fork`(默认)—— 独立分叉(`--continue --fork-session`),两边各走各的,互不影响。
-  - `share` —— 重新接入**同一个**会话(`--continue`),共享同一份 transcript。
-- **多种布局**:左右劈 / 上下劈 / 新标签 / 新窗口。
+只有三种形式:
+
+```bash
+branchnew            # 向右劈窗格 + fork 当前会话,自动命名 newBranch1 / newBranch2 / …
+branchnew <name>     # 同上,但把新会话命名为 <name>(原样,不带编号)
+branchnew --help     # 查看帮助
+```
+
+例:
+
+```bash
+branchnew                 # → newBranch3(自动编号)
+branchnew login-fix       # → 会话名 "login-fix"
+branchnew 试一下别的方案    # 名字可带空格/中文,不用加引号
+```
+
+## 它做什么
+
+- **同上下文 + 分叉**:新窗格里跑 `claude --continue --fork-session`,接上 `$PWD` 里最近的那个会话,并 **fork** 成独立的一支——两边各走各的,互不影响。
+- **自动命名**:不传名字时,新会话自动叫 `newBranch1`、`newBranch2`……(全局自增编号);传了名字就用你的名字。名字通过 `claude --name` 设置,显示在新会话的**输入框、`/resume` 选择器、终端标题**里,方便区分一堆分支。
 - **不改动任何文件或配置**:它只是开一个新的终端视图去跑 `claude`,纯粹的「开窗器」。
 
 ## 支持的终端(自动识别)
 
-启动时按下面的优先级自动选择后端,**无需手动指定**:
+按优先级自动选择,**无需手动指定**;动作始终是「向右劈一个窗格」,不能劈的退而求其次:
 
-| 终端环境 | 左右劈 `right` | 上下劈 `down` | 新标签 `tab` | 新窗口 `window` |
-|---|:---:|:---:|:---:|:---:|
-| **tmux**(在任意终端里) | ✅ 真分屏 | ✅ 真分屏 | ✅ 新 window | ✅ 新 window |
-| **iTerm2** | ✅ 原生分屏 | ✅ 原生分屏 | ✅ | ✅ |
-| **Apple Terminal**(系统自带) | ⚠️ 回退到新窗口 | ⚠️ 回退到新窗口 | ✅ 需辅助功能权限 | ✅ |
-| 其它终端(Ghostty/Kitty/Warp/VS Code…) | ➡️ 新开一个 Terminal 窗口,并给出提示 | | | |
-
-说明:
-- **Apple Terminal 没有「分屏」功能**,所以 `right` / `down` 会自动回退成**新窗口**(你可以把两个窗口并排摆),并打印一行提示。想在一个窗口里真正分屏,请在 **tmux** 里运行,或改用 **iTerm2**。
-- Apple Terminal 的**新标签** `tab` 通过模拟 `Cmd-T` 实现,需要「系统设置 › 隐私与安全性 › 辅助功能」授权;没授权会自动回退成新窗口。
-- 不在 iTerm2 / Terminal / tmux 里(比如 Ghostty、Kitty、Warp、VS Code 内置终端)时,无法直接脚本控制,会回退到**新开一个 Apple Terminal 窗口**,并提示你用 tmux / iTerm2 获得原地分屏。
+| 终端环境 | 行为 |
+|---|---|
+| **tmux**(在任意终端里) | `tmux split-window -h`,真·向右分屏 |
+| **iTerm2** | 原生 `split vertically`,向右分屏 |
+| **Apple Terminal**(系统自带) | 不支持分屏 → **新开一个窗口**(想真分屏请用 tmux 或 iTerm2) |
+| 其它终端(Ghostty/Kitty/Warp/VS Code…) | 无法脚本控制 → 新开一个 Apple Terminal 窗口,并给出提示 |
 
 ## 安装
 
-### 方式一:一键安装脚本
+### 方式一:一键安装
 
 ```bash
 git clone https://github.com/limin112/branchnew.git
@@ -47,7 +57,7 @@ cd branchnew
 ./install.sh
 ```
 
-`install.sh` 会把 `branchnew` 装到 `~/.local/bin/`、设好可执行权限,并在需要时把 `~/.local/bin` 加进你的 `PATH`。
+`install.sh` 会把 `branchnew` 装到 `~/.local/bin/`、设好可执行权限,并在需要时把 `~/.local/bin` 加进 PATH。
 
 ### 方式二:手动
 
@@ -55,60 +65,33 @@ cd branchnew
 mkdir -p ~/.local/bin
 curl -fsSL https://raw.githubusercontent.com/limin112/branchnew/main/branchnew -o ~/.local/bin/branchnew
 chmod +x ~/.local/bin/branchnew
-# 确保 ~/.local/bin 在 PATH 里(zsh):
 grep -q '.local/bin' ~/.zshrc || echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
 ```
 
 开一个新终端后即可使用。
 
-## 用法
+## 会话命名与编号
 
-```bash
-branchnew                # 右劈一个窗格,fork 当前会话(默认)
-branchnew down           # 下方劈一个窗格
-branchnew tab            # 新标签
-branchnew window         # 新窗口
-branchnew tab share      # 新标签,接入同一个会话(共享 transcript)
-branchnew down share     # 下方分屏,共享会话
-branchnew --help         # 查看帮助
-```
-
-参数顺序随意,布局词和会话模式词可以任意组合。
-
-| 布局 | 别名 |
-|---|---|
-| `right` | `r` `v` `vertical` |
-| `down` | `d` `below` `horizontal` |
-| `tab` | `t` |
-| `window` | `win` `w` |
-
-| 会话模式 | 别名 |
-|---|---|
-| `fork`(默认) | —— |
-| `share` | `cont` `continue` |
-
-> 在你的 Claude 会话所在目录运行它:它会 fork / 继续 `$PWD` 里**最近的**那个会话。
+- **不传名字** → `newBranch<N>`。**N 是全局自增计数器**,持久化在 `~/.local/state/branchnew/counter`(遵循 `$XDG_STATE_HOME`),每次自动命名 +1,永不重复。想重新从头计数就删掉该文件,或写入起始值:
+  ```bash
+  echo 0 > ~/.local/state/branchnew/counter   # 下一个就是 newBranch1
+  ```
+- **传名字** → 直接用你给的名字,**不带编号、不消耗计数器**。名字可带空格/中文(脚本用 `$*`,不必加引号)。
+- **预览不开窗**:`BRANCHNEW_DRYRUN=1 branchnew [name]` 只打印将要执行的命令(含最终名字)然后退出,不开任何窗口。
 
 ## 环境要求
 
-- **macOS**(脚本基于 AppleScript / tmux,iTerm2 与 Apple Terminal 均为 macOS 应用)。
-- 已安装 **Claude Code** CLI,且 `claude` 在 `PATH` 中。
-- 终端被允许运行 AppleScript:首次使用会弹「自动化(Automation)」授权 → 允许即可
+- **macOS**(基于 AppleScript / tmux)。
+- 已安装 **Claude Code** CLI,且 `claude` 在 PATH 中。
+- 终端被允许运行 AppleScript:首次会弹「自动化(Automation)」授权 → 允许即可
   (系统设置 › 隐私与安全性 › 自动化)。
-- 仅 Apple Terminal 的**新标签**额外需要「辅助功能(Accessibility)」授权。
 
 ## 工作原理
 
-`branchnew` 检测 `$TMUX` 和 `$TERM_PROGRAM` 来决定后端:
-
-- **tmux**:用 `tmux split-window` / `tmux new-window` 建好新 pane/window,再 `send-keys` 把 `claude` 命令送进去。
-- **iTerm2**:用 iTerm 原生 AppleScript(`split vertically/horizontally`、`create tab`、`create window`)。
-- **Apple Terminal**:用 `do script`(新窗口)或模拟 `Cmd-T`(新标签)。
-
-新视图里实际运行的命令是:
+`branchnew` 检测 `$TMUX` / `$TERM_PROGRAM` 选择后端,在新窗格/窗口里实际运行:
 
 ```bash
-cd <你当前的目录> && claude --continue [--fork-session]
+cd <你当前的目录> && claude --continue --fork-session --name <名字>
 ```
 
 脚本本身**不写死任何个人路径**(只用 `$PWD`、`$@`),可以原样分享。
@@ -117,9 +100,8 @@ cd <你当前的目录> && claude --continue [--fork-session]
 
 | 现象 | 原因 / 解决 |
 |---|---|
-| 报错 `could not open the new view` + AppleScript 错误 | 没给终端「自动化」授权。去 系统设置 › 隐私与安全性 › 自动化 勾选你的终端控制 iTerm/Terminal。 |
-| Apple Terminal 里 `tab` 变成了新窗口 | 没给「辅助功能」授权(模拟 Cmd-T 需要)。授权后再试,或直接用 `window`。 |
-| `right`/`down` 在 Apple Terminal 里开成了新窗口 | 正常行为——Terminal 不支持分屏。想真分屏请用 tmux 或 iTerm2。 |
+| 报错 `could not open the new view` + AppleScript 错误 | 没给终端「自动化」授权。系统设置 › 隐私与安全性 › 自动化,勾选你的终端控制 iTerm/Terminal。 |
+| Apple Terminal 里开成了新窗口而不是分屏 | 正常行为——Terminal 不支持分屏。想真分屏请用 tmux 或 iTerm2。 |
 | 新视图里 `claude: command not found` | 新开的 shell 里 `claude` 不在 PATH。先确保 Claude Code 已正确安装。 |
 
 ## License

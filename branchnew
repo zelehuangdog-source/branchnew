@@ -1,126 +1,88 @@
 #!/bin/zsh
 #
-# branchnew — split the CURRENT terminal pane (or open a new tab/window) and
-# continue the current Claude Code session there, so you get a second view with
-# the same context, right next to where you're working. Your current pane is
-# left untouched.
+# branchnew — split the current terminal to the right and continue the current
+# Claude Code session there as an independent FORK, so you get a second view with
+# the same context right next to where you're working. Your current pane is left
+# untouched.
 #
-# Backend is auto-detected, in this priority:
-#   • tmux           — real split panes / new window, inside ANY terminal
-#   • iTerm2         — native split panes / tab / window
-#   • Apple Terminal — new window / new tab (no split panes; see notes below)
+# Usage:
+#   branchnew            split right + fork, auto-named newBranch1, newBranch2, …
+#   branchnew <name>     split right + fork, named <name> (verbatim, no number)
+#   branchnew --help     show help
 #
-# Layout (pick one; default = right):
-#   right   split left|right (side by side)            [default]
-#   down    split top/bottom (stacked)
-#   tab     new tab in the current window
-#   window  brand-new window
+# Backend is auto-detected: tmux (real split) > iTerm2 (native split) >
+# Apple Terminal (can't split → new window) > anything else (new Terminal window).
 #
-# Session mode:
-#   fork    new view = an independent FORK of the current session   [default]
-#   share   new view = the SAME session reattached (shared transcript)
+# The fork's name is set with `claude --name`, shown in the new session's prompt
+# box, /resume picker, and terminal title. The auto counter is stored in
+# ${XDG_STATE_HOME:-~/.local/state}/branchnew/counter.
 #
-# Per-backend notes:
-#   • Apple Terminal can't split panes. `right`/`down` fall back to a new
-#     WINDOW (so you can place the two side by side) and print a notice. Use
-#     tmux or iTerm2 if you want a real split inside one window.
-#   • `tab` in Apple Terminal is done with a Cmd-T keystroke and needs
-#     Accessibility permission (System Settings › Privacy & Security ›
-#     Accessibility). If that isn't granted it falls back to a new window.
-#   • Any other terminal (Ghostty, Kitty, Warp, VS Code, …) that we can't
-#     script gets a new Apple Terminal window, with a hint to use tmux/iTerm2.
-#
-# Examples:
-#   branchnew              # split right, forked session
-#   branchnew down         # split below
-#   branchnew tab share    # new tab, same session reattached
-#   branchnew window
-#
-# Run it from the directory your Claude session is in: it forks/continues the
-# most recent session in $PWD.
+# Run it from the directory your Claude session is in: it forks the most recent
+# session in $PWD.
 
 emulate -L zsh
 
-layout=right
-flags="--continue --fork-session"
+# ── Args: --help → help; one-or-more args → that name; no args → auto name. ────
+case "${1:-}" in
+  -h|--help|help)
+    print -r -- "Usage:"
+    print -r -- "  branchnew            split right + fork the current Claude session,"
+    print -r -- "                       auto-named newBranch1, newBranch2, … (a counter)"
+    print -r -- "  branchnew <name>     same, but name the new session <name>"
+    print -r -- "  branchnew --help     show this help"
+    print -r -- ""
+    print -r -- "Backend auto-detected: tmux > iTerm2 > Apple Terminal > new Terminal window."
+    exit 0
+    ;;
+esac
 
-for a in "$@"; do
-  case "$a" in
-    right|r|v|vertical)            layout=right ;;
-    down|d|below|horizontal)       layout=down ;;
-    tab|t)                         layout=tab ;;
-    window|win|w)                  layout=window ;;
-    fork)                          flags="--continue --fork-session" ;;
-    share|cont|continue)           flags="--continue" ;;
-    -h|--help|help)
-      print -r -- "Usage: branchnew [right|down|tab|window] [fork|share]"
-      print -r -- "  right  (default) split current pane left|right"
-      print -r -- "  down            split current pane top/bottom"
-      print -r -- "  tab             new tab in the current window"
-      print -r -- "  window          brand-new window"
-      print -r -- "  fork   (default) new view = independent fork of the current session"
-      print -r -- "  share           new view = same session reattached (shared transcript)"
-      print -r -- ""
-      print -r -- "Backends (auto-detected): tmux  >  iTerm2  >  Apple Terminal."
-      print -r -- "Apple Terminal has no split panes; right/down open a new window instead."
-      exit 0
-      ;;
-    *)
-      print -u2 -r -- "branchnew: unknown argument '$a' (try: right|down|tab|window, fork|share, --help)"
-      exit 2
-      ;;
-  esac
-done
+if (( $# > 0 )); then
+  # Custom name: everything you typed (so multi-word names work without quotes).
+  name="$*"
+else
+  # Auto name: newBranch<N>, N from a global, persistent, incrementing counter.
+  state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/branchnew"
+  mkdir -p "$state_dir" 2>/dev/null
+  counter_file="$state_dir/counter"
+  cur="$(cat "$counter_file" 2>/dev/null)"
+  [[ "$cur" == <-> ]] || cur=0                 # reset if missing / non-numeric
+  n=$(( cur + 1 ))
+  print -r -- "$n" > "$counter_file" 2>/dev/null
+  name="newBranch${n}"
+fi
 
-# Command the new pane/tab/window will run. ${(q)PWD} keeps paths with spaces
-# intact; $flags stays unquoted so the new shell splits it into args.
-cmd="cd ${(q)PWD} && claude ${flags}"
+print -u2 -r -- "branchnew: new branch session → ${name}"
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Backend: tmux — works inside ANY terminal and gives real split panes.
-# ──────────────────────────────────────────────────────────────────────────────
+# Command the new pane will run. ${(q)...} keeps paths / names with spaces safe;
+# the new shell sees one --name argument even if the name contains spaces.
+cmd="cd ${(q)PWD} && claude --continue --fork-session --name ${(q)name}"
+
+# Debug aid: BRANCHNEW_DRYRUN=1 prints what would run and opens nothing.
+if [[ -n "${BRANCHNEW_DRYRUN:-}" ]]; then
+  print -r -- "[dry-run] TMUX=${TMUX:+set} TERM_PROGRAM=${TERM_PROGRAM:-unknown}"
+  print -r -- "[dry-run] command: $cmd"
+  exit 0
+fi
+
+# ── Backends — always a split to the right, or the closest each one can do. ────
 launch_tmux() {
-  case "$layout" in
-    right)       tmux split-window -h -c "$PWD" || return 1 ;;
-    down)        tmux split-window -v -c "$PWD" || return 1 ;;
-    tab|window)  tmux new-window      -c "$PWD" || return 1 ;;
-  esac
-  # The new pane/window is now active; type the claude command into it.
-  tmux send-keys "claude ${flags}" Enter
+  tmux split-window -h -c "$PWD" || return 1
+  tmux send-keys "claude --continue --fork-session --name ${(q)name}" Enter
 }
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Backend: iTerm2 — native AppleScript split / tab / window.
-# $cmd and $layout are passed as argv items (not interpolated into the
-# AppleScript source) so they need no escaping. stdout (the session ref iTerm
-# prints) is discarded; stderr is surfaced so real failures show up.
-# ──────────────────────────────────────────────────────────────────────────────
 launch_iterm() {
   osascript \
     -e 'on run argv' \
     -e 'set cmd to item 1 of argv' \
-    -e 'set lay to item 2 of argv' \
     -e 'tell application "iTerm"' \
     -e '  activate' \
-    -e '  if lay is "window" then' \
-    -e '    set s to current session of (create window with default profile)' \
-    -e '  else if lay is "tab" then' \
-    -e '    tell current window to set s to current session of (create tab with default profile)' \
-    -e '  else if lay is "down" then' \
-    -e '    tell current session of current window to set s to (split horizontally with default profile)' \
-    -e '  else' \
-    -e '    tell current session of current window to set s to (split vertically with default profile)' \
-    -e '  end if' \
+    -e '  tell current session of current window to set s to (split vertically with default profile)' \
     -e '  tell s to write text cmd' \
     -e 'end tell' \
     -e 'end run' \
-    "$cmd" "$layout" 2>&1 >/dev/null
+    "$cmd" 2>&1 >/dev/null
 }
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Backend: Apple Terminal — a new window (do script), or a new tab via a Cmd-T
-# keystroke (needs Accessibility permission).
-# ──────────────────────────────────────────────────────────────────────────────
 launch_terminal_window() {
   osascript \
     -e 'on run argv' \
@@ -133,32 +95,17 @@ launch_terminal_window() {
     "$cmd" 2>&1 >/dev/null
 }
 
-launch_terminal_tab() {
-  osascript \
-    -e 'on run argv' \
-    -e 'set cmd to item 1 of argv' \
-    -e 'tell application "Terminal" to activate' \
-    -e 'tell application "System Events" to keystroke "t" using command down' \
-    -e 'delay 0.25' \
-    -e 'tell application "Terminal" to do script cmd in front window' \
-    -e 'end run' \
-    "$cmd" 2>&1 >/dev/null
-}
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Dispatch.
-# ──────────────────────────────────────────────────────────────────────────────
 fail() {
   print -u2 -r -- "branchnew: could not open the new view."
   [[ -n "${1:-}" ]] && print -u2 -r -- "$1"
   print -u2 -r -- "(Is your terminal allowed to run AppleScript? System Settings ›"
-  print -u2 -r -- " Privacy & Security › Automation — plus Accessibility for Terminal tabs.)"
+  print -u2 -r -- " Privacy & Security › Automation.)"
   exit 1
 }
 
 # tmux first: if we're inside tmux it can split natively, whatever the terminal.
 if [[ -n "${TMUX:-}" ]]; then
-  launch_tmux || fail "tmux refused to split or create the window."
+  launch_tmux || fail "tmux refused to split the window."
   exit 0
 fi
 
@@ -166,30 +113,12 @@ case "${TERM_PROGRAM:-}" in
   iTerm.app)
     if ! err="$(launch_iterm)"; then fail "$err"; fi
     ;;
-
   Apple_Terminal)
-    case "$layout" in
-      window)
-        if ! err="$(launch_terminal_window)"; then fail "$err"; fi
-        ;;
-      tab)
-        if ! err="$(launch_terminal_tab)"; then
-          print -u2 -r -- "branchnew: couldn't open a new tab (Accessibility permission?) — opening a new window instead."
-          if ! err="$(launch_terminal_window)"; then fail "$err"; fi
-        fi
-        ;;
-      right|down)
-        print -u2 -r -- "branchnew: Apple Terminal can't split panes — opening a new window instead."
-        print -u2 -r -- "          (run inside tmux, or use iTerm2, for real split panes.)"
-        if ! err="$(launch_terminal_window)"; then fail "$err"; fi
-        ;;
-    esac
+    print -u2 -r -- "branchnew: Apple Terminal can't split panes — opening a new window instead."
+    print -u2 -r -- "          (run inside tmux, or use iTerm2, for a real split.)"
+    if ! err="$(launch_terminal_window)"; then fail "$err"; fi
     ;;
-
   *)
-    # Unknown terminal we can't script directly (Ghostty, Kitty, Warp, VS Code…).
-    # Apple Terminal is always present on macOS — use it, and point the way to a
-    # real in-place split.
     print -u2 -r -- "branchnew: terminal '${TERM_PROGRAM:-unknown}' can't be scripted directly —"
     print -u2 -r -- "          opening a new Apple Terminal window. For an in-place split, run"
     print -u2 -r -- "          branchnew inside tmux, or use iTerm2."
