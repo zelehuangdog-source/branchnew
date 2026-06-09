@@ -1,5 +1,7 @@
 # branchnew
 
+> 🤖 **最省事的装法**:把这个仓库、或它的 URL `https://github.com/limin112/branchnew` 丢给 Claude Code,说一句「**帮我装 branchnew**」,它就会照着本 README 的 [安装](#安装) 步骤帮你装好(并会问你要不要 iTerm2 ⌘F 热键)。
+
 在**当前终端**向右劈一个窗格,并在那里把当前的 Claude Code 会话 **fork 一份继续**——于是你立刻得到一个上下文相同的「分身」,就贴在你正在工作的地方。你原来的窗格不动。
 
 一句话:`branchnew` = 「把这个 Claude 会话再 fork 一个分身,放右边」。
@@ -54,17 +56,6 @@ branchnew 试一下别的方案    # 名字可带空格/中文,不用加引号
 除了命令行,还有一个 iTerm2 集成:**按快捷键 fork 当前窗格里那条确切的会话**(精确到 session id,所以 fork-of-a-fork 也对)。它靠一个 iTerm2 后台守护 + Claude 钩子(钩子调用 `branchnew --record` 记录「窗格 ↔ 会话」映射)。安装:`./install.sh --hotkey`。完整原理与复现步骤见 **[HOTKEY-FORK.md](HOTKEY-FORK.md)**。
 
 ## 安装
-
-### 🤖 让 Claude 帮你装(最省事)
-
-不想自己敲命令?把这个仓库交给 Claude Code,它会照着仓库里的 [`CLAUDE.md`](CLAUDE.md) 自动装好:
-
-- 克隆后在仓库目录里开 Claude,说一句「**帮我装 branchnew**」;或
-- 直接对 Claude 说「**帮我装一下 https://github.com/limin112/branchnew**」。
-
-Claude 会:跑 `install.sh`、问你要不要 iTerm2 ⌘F 热键、并把它自己做不了的两步(开 Python API、重启 iTerm2)清楚地告诉你。
-
-### 自己装(一行)
 
 **一行装好**(`branchnew` 命令 + `/branchnew` 斜杠命令,无需 clone):
 
