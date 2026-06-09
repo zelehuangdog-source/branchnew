@@ -30,6 +30,8 @@ branchnew login-fix       # → 会话名 "login-fix"
 branchnew 试一下别的方案    # 名字可带空格/中文,不用加引号
 ```
 
+> **在 Claude Code 会话里**:直接打 **`/branchnew`**(或 `/branchnew <名字>`)即可触发同样的 fork——斜杠命令内部就是调 `branchnew`。`install.sh` 会一并把它装到 `~/.claude/commands/`。
+
 ## 它做什么
 
 - **同上下文 + 分叉**:新窗格里跑 `claude --continue --fork-session`,接上 `$PWD` 里最近的那个会话,并 **fork** 成独立的一支——两边各走各的,互不影响。

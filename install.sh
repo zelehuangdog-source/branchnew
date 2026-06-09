@@ -41,6 +41,12 @@ if ! command -v claude >/dev/null 2>&1; then
   echo "! note: 'claude' was not found on PATH — install Claude Code so branchnew has something to launch."
 fi
 
+# Install the /branchnew slash command (type it inside a Claude Code session to fork).
+CMD_DIR="$HOME/.claude/commands"
+mkdir -p "$CMD_DIR"
+install -m 0644 "$SRC_DIR/commands/branchnew.md" "$CMD_DIR/branchnew.md"
+echo "✓ installed /branchnew slash command: $CMD_DIR/branchnew.md"
+
 # ── Optional: the iTerm2 hotkey (⌃⌥⌘F) fork daemon. ───────────────────────────
 if [[ "${1:-}" == "--hotkey" ]]; then
   AL="$HOME/Library/Application Support/iTerm2/Scripts/AutoLaunch"
