@@ -13,7 +13,8 @@
 #                        the hotkey fork daemon; called by Claude hooks, not by you.
 #
 # Backend is auto-detected: tmux (real split) > iTerm2 (native split) >
-# Apple Terminal (can't split → new window) > anything else (new Terminal window).
+# Warp (split via System Events) > Apple Terminal (can't split → new window) >
+# anything else (new Terminal window).
 #
 # The fork's name is set with `claude --name`, shown in the new session's prompt
 # box, /resume picker, and terminal title. The auto counter is stored in
@@ -83,7 +84,7 @@ case "${1:-}" in
     print -r -- "  branchnew <name>     same, but name the new session <name>"
     print -r -- "  branchnew --help     show this help"
     print -r -- ""
-    print -r -- "Backend auto-detected: tmux > iTerm2 > Apple Terminal > new Terminal window."
+    print -r -- "Backend auto-detected: tmux > iTerm2 > Warp > Apple Terminal > new Terminal window."
     exit 0
     ;;
 esac
@@ -135,6 +136,24 @@ launch_iterm() {
     "$cmd" 2>&1 >/dev/null
 }
 
+launch_warp() {
+  osascript \
+    -e 'on run argv' \
+    -e 'set cmd to item 1 of argv' \
+    -e 'tell application "Warp" to activate' \
+    -e 'delay 0.3' \
+    -e 'tell application "System Events" to tell process "Warp"' \
+    -e '  keystroke "d" using {command down}' \
+    -e 'end tell' \
+    -e 'delay 0.5' \
+    -e 'tell application "System Events" to tell process "Warp"' \
+    -e '  keystroke cmd' \
+    -e '  key code 36' \
+    -e 'end tell' \
+    -e 'end run' \
+    "$cmd" 2>&1 >/dev/null
+}
+
 launch_terminal_window() {
   osascript \
     -e 'on run argv' \
@@ -165,6 +184,9 @@ case "${TERM_PROGRAM:-}" in
   iTerm.app)
     if ! err="$(launch_iterm)"; then fail "$err"; fi
     ;;
+  WarpTerminal)
+    if ! err="$(launch_warp)"; then fail "$err"; fi
+    ;;
   Apple_Terminal)
     print -u2 -r -- "branchnew: Apple Terminal can't split panes — opening a new window instead."
     print -u2 -r -- "          (run inside tmux, or use iTerm2, for a real split.)"
@@ -173,7 +195,7 @@ case "${TERM_PROGRAM:-}" in
   *)
     print -u2 -r -- "branchnew: terminal '${TERM_PROGRAM:-unknown}' can't be scripted directly —"
     print -u2 -r -- "          opening a new Apple Terminal window. For an in-place split, run"
-    print -u2 -r -- "          branchnew inside tmux, or use iTerm2."
+    print -u2 -r -- "          branchnew inside tmux, iTerm2, or Warp."
     if ! err="$(launch_terminal_window)"; then fail "$err"; fi
     ;;
 esac
