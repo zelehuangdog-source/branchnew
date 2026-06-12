@@ -108,7 +108,12 @@ print -u2 -r -- "branchnew: new branch session → ${name}"
 
 # Command the new pane will run. ${(q)...} keeps paths / names with spaces safe;
 # the new shell sees one --name argument even if the name contains spaces.
-cmd="cd ${(q)PWD} && claude --continue --fork-session --name ${(q)name}"
+# Prefer --resume with session ID (exact match) over --continue (dir-based lookup).
+if [[ -n "${CLAUDE_CODE_SESSION_ID:-}" ]]; then
+  cmd="cd ${(q)PWD} && claude --resume ${(q)CLAUDE_CODE_SESSION_ID} --fork-session --name ${(q)name}"
+else
+  cmd="cd ${(q)PWD} && claude --continue --fork-session --name ${(q)name}"
+fi
 
 # Debug aid: BRANCHNEW_DRYRUN=1 prints what would run and opens nothing.
 if [[ -n "${BRANCHNEW_DRYRUN:-}" ]]; then
