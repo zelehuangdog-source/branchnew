@@ -106,9 +106,18 @@ fi
 
 print -u2 -r -- "branchnew: new branch session → ${name}"
 
-# The CLI command that launched this session. Override with BRANCHNEW_CLAUDE_CMD
-# if you use a wrapper (e.g. "mc --code --dangerously-skip-permissions").
-claude_cmd="${BRANCHNEW_CLAUDE_CMD:-claude}"
+# The CLI command that launched this session. Resolved in order:
+#   1. BRANCHNEW_CLAUDE_CMD env var
+#   2. ~/.config/branchnew/cmd file (one line, e.g. "mc --code --dangerously-skip-permissions")
+#   3. defaults to "claude"
+_cmd_file="${XDG_CONFIG_HOME:-$HOME/.config}/branchnew/cmd"
+if [[ -n "${BRANCHNEW_CLAUDE_CMD:-}" ]]; then
+  claude_cmd="$BRANCHNEW_CLAUDE_CMD"
+elif [[ -r "$_cmd_file" ]]; then
+  claude_cmd="$(<$_cmd_file)"
+else
+  claude_cmd="claude"
+fi
 
 # Command the new pane will run. ${(q)...} keeps paths / names with spaces safe;
 # the new shell sees one --name argument even if the name contains spaces.
